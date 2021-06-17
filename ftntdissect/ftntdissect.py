@@ -26,6 +26,7 @@ class Ftntdissect(object):
         self.vdom_enable = False        # Tell if config has vdom enabled or not
         self.scope = [1,9999999999]     # scope array made of start and end indexes
         self.mgmt_vdom = None
+        self.feedback = {}              # Feedback dict after search
         self.debug = debug
         # Private Attributs
         self._config = []
@@ -58,17 +59,12 @@ class Ftntdissect(object):
         self._config_lines = index
         log.debug("Loaded {} line".format(self._config_lines))
 
-    def parse(self):
+    def scope_init(self):
         """
-        Parses the loaded configuration to set information
+        Reset scope to the full size of the configuration file
         """
         log.info("Enter")
-        if self._config_lines == 0:
-            log.error("configuration file is not loaded")
-            raise SystemExit
-        self.register_vdoms()
-        self._update_mgmt_vdom()
-
+        self.scope = [ 0 , self._config_lines ]
 
     def get_line(self, index=1):
         """
@@ -155,6 +151,17 @@ class Ftntdissect(object):
                     log.error('unknown action={}'.format(action))
                     raise SystemExit
 
+    def parse(self):
+        """
+        Parses the loaded configuration to set information
+        """
+        log.info("Enter")
+        if self._config_lines == 0:
+            log.error("configuration file is not loaded")
+            raise SystemExit
+        self.register_vdoms()
+        self._update_mgmt_vdom()
+
     def register_vdoms(self):
         """
         Register all vdoms:
@@ -208,6 +215,8 @@ class Ftntdissect(object):
         # Terminates the last vdom
         self.vdom_index(vdom=vdom, action='set', type='endindex', value= i)
 
+
+
     def vdom_index(self, vdom='root', type='', action='', value=None):
         """
         Set or get a given vdom startindex or endindex
@@ -246,6 +255,74 @@ class Ftntdissect(object):
         log.info("Enter")
         # TBD requires _update_mgmt_vdom that requires scope_config
 
+    def scope_vdom(self, vdom='root'):
+        """
+        Set scope corresponding to the given vdom
+        Vdoms should have been registered before use.
+        """
+        log.info("Enter with vdom={}".format(vdom))
+        if not self._vdom_list:
+            log.error("vdoms are not registered")
+        start = self.vdom_index(vdom=vdom, type='startindex', action='get')
+        end = self.vdom_index(vdom=vdom, type='endindex', action='get')
+        log.debug("result={}".format([start, end]))
+        return [start, end]
+
+    def scope_config(self, statement='', partial=False):
+        """
+        Search for config statement from current scope.
+        Upon search success, the scope is updated
+        Feedback attribut is updated on success
+        return True if statement is found
+        """
+        log.info("Enter with statement={} partial={}".format(statement, partial))
+        log.debug("Initial scope={}".format(self.scope))
+        self._clear_feedback()
+        result = self._config_seek(startindex = self.scope[0],
+                                   endindex = self.scope[1],
+                                   starting_statement = statement,
+                                   ending_statement = 'end',
+                                   key = 'config',
+                                   partial_flag = partial)
+        self.scope = [ result[1], result[2] ]
+        self.feedback['found'] = result[0]
+        self.feedback['startindex'] = result[1]
+        self.feedback['endindex'] = result[2]
+        return result[0]
+
+    def scope_edit(self, statement='', partial=True):
+        """
+        Search for edit statement from current scope.
+        Upon search success, the scope is updated,
+        Feedback attribut is updated on success.
+        It is possible to get the <id> from an "edit <id>" from feedback 'id'
+        return True if statement is found
+        """
+        log.info("Enter with statement={} partial={}".format(statement, partial))
+        log.debug("Initial scope={}".format(self.scope))
+        self._clear_feedback()
+        result = self._config_seek(startindex = self.scope[0],
+                                   endindex = self.scope[1],
+                                   starting_statement = statement,
+                                   ending_statement = 'next',
+                                   key = 'edit',
+                                   partial_flag = partial)
+        self.scope = [ result[1], result[2] ]
+        self.feedback['found'] = result[0]
+        self.feedback['startindex'] = result[1]
+        self.feedback['endindex'] = result[2]
+        self.feedback['id'] = result[3]
+        return result[0]
+
+    def get_key(self, key='', nested=False, default=''):
+        """
+        TBD
+        """
+        log.info("Enter with key={} nested={} defaut={}".format(key, nested, default))
+        log.debug("Initial scope={}".format(self.scope))
+        self._clear_feedback()
+        # TBD : work in progress
+
     def _update_mgmt_vdom(self):
         """
         Update management vdoms
@@ -271,6 +348,14 @@ class Ftntdissect(object):
             log.error("scope startindex > endindex")
         if not valid:
             raise SystemExit
+
+    def _clear_feedback(self):
+        """
+        Resets feedback attribut
+        """
+        log.info("Enter")
+        self.feedback = {}
+        self.feedback['found'] = False
 
     def _config_seek(self, startindex=0, endindex=999999999, starting_statement='', ending_statement='', key='', partial_flag=False):
         """
@@ -314,26 +399,23 @@ class Ftntdissect(object):
                     flag_found = True
                     start_return = i
                     # Retrieve the key, it could be the name in edit <NAME> or config <name>
-                    match = re.search('^(?:\s|\t)*(?:edit|config)(?:\s|\t)*(?:")?(?P<key>.*)(?:")?(?:\r|\n)*', line)
+                    match = re.search('^(?:\s|\t)*(?:edit|config)(?:\s|\t)*(?:")?(?P<key>[A-Za-z0-9_-]*)(?:")?(?:\r|\n)*', line)
                     if match:
                         edit_key = match.group('key')
                         log.debug('found config/edit key={} at #{}'.format(edit_key, i))
             # Exit if we have found the corresponding end statement
             # but don't catch nested_config end statement
-            if re.search('^(\s|\t)*'+ending_statement+'$', line):
+            if re.search('^(\s|\t)*'+ending_statement+'$', line) and flag_found:
                 if nested_config > 0:
                     nested_config = nested_config - 1
                     log.debug('seen end of a nested {} at #{}'.format(key, i))
                 else:
                     log.debug('end of the {} statement we are looking for at #{}'.format(key,i))
-                    break
                     end_return = i
+                    break
         result = [ flag_found, start_return, end_return, edit_key ]
         log.debug('returning result={}'.format(result))
         return result
-
-
-
 
 
 """

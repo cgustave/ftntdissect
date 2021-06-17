@@ -35,6 +35,9 @@ CLASSES
      |      Configuration is reduced if using action='shrink'
      |      otherwise block is replaced with blank lines with action='blank' (default)
      |  
+     |  get_key(self, key='', nested=False, default='')
+     |      TBD
+     |  
      |  get_line(self, index=1)
      |      Returns configuration line at the provided index
      |  
@@ -62,6 +65,26 @@ CLASSES
      |      Register all vdoms:
      |        - add them in a list
      |        - store for each of them their startindex and endindex
+     |  
+     |  scope_config(self, statement='', partial=False)
+     |      Search for config statement from current scope.
+     |      Upon search success, the scope is updated
+     |      Feedback attribut is updated on success
+     |      return True if statement is found
+     |  
+     |  scope_edit(self, statement='', partial=True)
+     |      Search for edit statement from current scope.
+     |      Upon search success, the scope is updated,
+     |      Feedback attribut is updated on success.
+     |      It is possible to get the <id> from an "edit <id>" from feedback 'id'
+     |      return True if statement is found
+     |  
+     |  scope_init(self)
+     |      Reset scope to the full size of the configuration file
+     |  
+     |  scope_vdom(self, vdom='root')
+     |      Set scope corresponding to the given vdom
+     |      Vdoms should have been registered before use.
      |  
      |  set_line(self, index=None, content='')
      |      Set provided content at provided index in configuration

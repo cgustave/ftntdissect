@@ -64,7 +64,6 @@ class FtntdissectTestCase(unittest.TestCase):
         self.cfg.delete(action='shrink', index=5)
         self.assertEqual(self.cfg.get_line(index=11), 'end')
 
-
     @unittest.skip # quicker dev stage
     def test_delete_block_shrink_ok(self):
         self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
@@ -108,6 +107,13 @@ class FtntdissectTestCase(unittest.TestCase):
         self.assertEqual(self.cfg.vdom_enable, False)
 
     @unittest.skip # quicker dev stage
+    def test_scope_init_ok(self):
+        self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
+        self.cfg.scope_init()
+        self.assertEqual(self.cfg.scope[0], 0)
+        self.assertEqual(self.cfg.scope[1], 12200)
+
+    @unittest.skip # quicker dev stage
     def test_register_vdoms_ok_4vdoms(self):
         self.cfg = Ftntdissect(configfile='tests/config2.conf', debug=True)
         self.cfg.register_vdoms()
@@ -136,11 +142,19 @@ class FtntdissectTestCase(unittest.TestCase):
         self.assertEqual(self.cfg.get_nb_vdoms(), 4)
 
     @unittest.skip # code is not ready !
+    def test_scope_vdom_ok(self):
+        self.cfg = Ftntdissect(configfile='tests/config2.conf', debug=True)
+        self.cfg.register_vdoms()
+        result = self.cfg.scope_vdom(vdom='vdom_one')
+        self.assertEqual(result, [ 11578, 14071 ])
+
+    @unittest.skip # code is not ready !
     def test_get_vdom_list(self):
         self.cfg = Ftntdissect(configfile='tests/config2.conf', debug=True)
         self.cfg.register_vdoms()
         self.assertEqual(self.cfg.get_vdom_list(), ('root'))
 
+    @unittest.skip
     def test_config_seek_1(self):
         self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
         result = self.cfg._config_seek( startindex = 1,
@@ -150,6 +164,69 @@ class FtntdissectTestCase(unittest.TestCase):
                                         key = 'config',
                                         partial_flag = False)
         self.assertEqual(result[0], True)
+        self.assertEqual(result[1], 5)
+        self.assertEqual(result[2], 12)
+
+    @unittest.skip
+    def test_scope_config_1(self):
+        self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
+        self.cfg.parse()
+        result = self.cfg.scope_config(statement='config system global')
+        self.assertTrue(result)
+        self.assertTrue(self.cfg.feedback['found'])
+        self.assertEqual(self.cfg.feedback['startindex'], 5)
+        self.assertEqual(self.cfg.feedback['endindex'], 12)
+        self.assertEqual(self.cfg.scope[0], 5)
+        self.assertEqual(self.cfg.scope[1], 12)
+
+    @unittest.skip
+    def test_scope_config_multi_1(self):
+        self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
+        self.cfg.parse()
+        result = self.cfg.scope_config(statement='config router bgp')
+        if result:
+            self.cfg.scope_config(statement='config neighbor')
+            self.assertTrue(self.cfg.feedback['found'])
+            self.assertEqual(self.cfg.feedback['startindex'], 12112)
+            self.assertEqual(self.cfg.feedback['endindex'], 12149)
+
+    @unittest.skip
+    def test_scope_edit_get_id(self):
+        self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
+        self.cfg.parse()
+        result = self.cfg.scope_config(statement='config system interface')
+        if result:
+            result = self.cfg.scope_edit(statement='edit')
+            #print("result={}".format(result))
+            self.assertTrue(self.cfg.feedback['found'])
+            self.assertEqual(self.cfg.feedback['startindex'], 29)
+            self.assertEqual(self.cfg.feedback['endindex'], 37)
+            self.assertEqual(self.cfg.feedback['id'], 'port1')
+
+    @unittest.skip
+    def test_scope_edit_specific(self):
+        self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
+        self.cfg.parse()
+        result = self.cfg.scope_config(statement='config system interface')
+        if result:
+            result = self.cfg.scope_edit(statement='edit "port2"')
+            #print("result={} feedback={}".format(result, self.cfg.feedback))
+            self.assertTrue(self.cfg.feedback['found'])
+            self.assertEqual(self.cfg.feedback['startindex'], 38)
+            self.assertEqual(self.cfg.feedback['endindex'], 46)
+            self.assertEqual(self.cfg.feedback['id'], 'port2')
+
+    def test_get_key(self):
+        self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
+        self.cfg.parse()
+        if self.cfg.scope_config(statement='config system interface'):
+            if self.cfg.scope_edit(statement='edit "port2"'):
+                result = self.cfg.get_key(key='alias', nested=False, default='')
+                print("result={} feedback={}".format(result, self.cfg.feedback))
+
+
+
+
 
 
 
