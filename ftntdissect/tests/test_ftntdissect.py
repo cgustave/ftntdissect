@@ -68,13 +68,15 @@ class FtntdissectTestCase(unittest.TestCase):
     @unittest.skip # quicker dev stage
     def test_delete_block_shrink_ok(self):
         self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
-        self.cfg.delete_block(scope=[5,12], action='shrink')
+        self.cfg.scope = [5,12]
+        self.cfg.delete_block(action='shrink')
         self.assertEqual(self.cfg.max_lines(), 12200-8)
 
     @unittest.skip # quicker dev stage
     def test_delete_block_blank_ok(self):
         self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
-        self.cfg.delete_block(scope=[5, 12], action='blank')
+        self.cfg.scope = [5,12]
+        self.cfg.delete_block(action='blank')
         self.assertEqual(self.cfg.get_line(index=5), "\n")
         self.assertEqual(self.cfg.get_line(index=10), "\n")
         self.assertEqual(self.cfg.get_line(index=12), "\n")
@@ -83,19 +85,75 @@ class FtntdissectTestCase(unittest.TestCase):
     @unittest.skip # quicker dev stage
     def test_delete_all_keys_from_scope_blank_ok(self):
         self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
-        self.cfg.delete_all_keys_from_scope(key='uuid', scope=[7278, 7402], action='blank')
+        self.cfg.scope = [7278, 7402]
+        self.cfg.delete_all_keys_from_scope(key='uuid', action='blank')
         self.assertEqual(self.cfg.get_line(index=7280), "\n")
         self.assertEqual(self.cfg.get_line(index=7398), "\n")
 
     @unittest.skip # quicker dev stage
     def test_delete_all_keys_from_scope_shrink_ok(self):
         self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
-        self.cfg.delete_all_keys_from_scope(key='start-ip', scope=[7403, 7428], action='shrink')
+        self.cfg.scope = [7403, 7428]
+        self.cfg.delete_all_keys_from_scope(key='start-ip', action='shrink')
         self.assertEqual(self.cfg.max_lines(), 12200-6)
 
-    def test_register_vdoms_ok(self):
+    @unittest.skip # quicker dev stage
+    def test_register_vdoms_ok_1vdom(self):
+        self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
+        self.cfg.register_vdoms()
+        #print ("vdom={}".format(self.cfg._vdom))
+        self.assertEqual(self.cfg._vdom_list, ['root'])
+        self.assertEqual(self.cfg._vdom['root']['startindex'], 4)
+        self.assertEqual(self.cfg._vdom['root']['endindex'], 12199)
+        self.assertEqual(self.cfg.vdom_enable, False)
+
+    @unittest.skip # quicker dev stage
+    def test_register_vdoms_ok_4vdoms(self):
         self.cfg = Ftntdissect(configfile='tests/config2.conf', debug=True)
         self.cfg.register_vdoms()
+        self.assertEqual(self.cfg._vdom_list, ['root', 'vdom_one', 'vdom_two', 'vdom_three'])
+        #print ("vdom={}".format(self.cfg._vdom))
+        self.assertEqual(self.cfg._vdom['root']['startindex'], 8331)
+        self.assertEqual(self.cfg._vdom['root']['endindex'], 11574)
+        self.assertEqual(self.cfg._vdom['vdom_one']['startindex'], 11578)
+        self.assertEqual(self.cfg._vdom['vdom_one']['endindex'], 14071)
+        self.assertEqual(self.cfg._vdom['vdom_two']['startindex'], 14075)
+        self.assertEqual(self.cfg._vdom['vdom_two']['endindex'], 16548)
+        self.assertEqual(self.cfg._vdom['vdom_three']['startindex'], 16552)
+        self.assertEqual(self.cfg._vdom['vdom_three']['endindex'], 19025)
+        self.assertEqual(self.cfg.vdom_enable, True)
+
+    @unittest.skip # quicker dev stage
+    def test_nb_vdom_ok_1vdoms(self):
+        self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
+        self.cfg.register_vdoms()
+        self.assertEqual(self.cfg.get_nb_vdoms(), 1)
+
+    @unittest.skip # quicker dev stage
+    def test_nb_vdom_ok_4vdoms(self):
+        self.cfg = Ftntdissect(configfile='tests/config2.conf', debug=True)
+        self.cfg.register_vdoms()
+        self.assertEqual(self.cfg.get_nb_vdoms(), 4)
+
+    @unittest.skip # code is not ready !
+    def test_get_vdom_list(self):
+        self.cfg = Ftntdissect(configfile='tests/config2.conf', debug=True)
+        self.cfg.register_vdoms()
+        self.assertEqual(self.cfg.get_vdom_list(), ('root'))
+
+    def test_config_seek_1(self):
+        self.cfg = Ftntdissect(configfile='tests/config1.conf', debug=True)
+        result = self.cfg._config_seek( startindex = 1,
+                                        endindex = self.cfg._config_lines,
+                                        starting_statement = 'config system global',
+                                        ending_statement = 'end',
+                                        key = 'config',
+                                        partial_flag = False)
+        self.assertEqual(result[0], True)
+
+
+
+
 
 
 

@@ -25,18 +25,24 @@ CLASSES
      |      Deletes a line. Per default, it is replace with a blank line (action='blank')
      |      Use action='shrink' to remove the line and shrink config by 1 line
      |  
-     |  delete_all_keys_from_scope(self, key=None, scope=[1, -1], action='blank')
-     |      Blank or delete any lines with a given key on the given scope
+     |  delete_all_keys_from_scope(self, key=None, action='blank')
+     |      Blank or delete any lines with a given key on a scope
      |      Configuration is reduced if using action='shrink'
      |      otherwise block is replaced with blank lines with action='blank' (default)
      |  
-     |  delete_block(self, scope=[1, -1], action='blank')
-     |      Deletes an entire block of config delimited by a scope.
+     |  delete_block(self, action='blank')
+     |      Deletes an entire block of config delimited by scope.
      |      Configuration is reduced if using action='shrink'
      |      otherwise block is replaced with blank lines with action='blank' (default)
      |  
      |  get_line(self, index=1)
      |      Returns configuration line at the provided index
+     |  
+     |  get_nb_vdoms(self)
+     |      Returns the number of vdoms
+     |  
+     |  get_vdom_list(self)
+     |      Resturns the vdom list sorted alphabetically with management vdom first
      |  
      |  insert(self, index=None, content='')
      |      Inserts provided content at provided index.
@@ -48,6 +54,9 @@ CLASSES
      |  
      |  max_lines(self)
      |      Returns configuration size (maximum index)
+     |  
+     |  parse(self)
+     |      Parses the loaded configuration to set information
      |  
      |  register_vdoms(self)
      |      Register all vdoms:
