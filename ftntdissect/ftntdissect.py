@@ -215,8 +215,6 @@ class Ftntdissect(object):
         # Terminates the last vdom
         self.vdom_index(vdom=vdom, action='set', type='endindex', value= i)
 
-
-
     def vdom_index(self, vdom='root', type='', action='', value=None):
         """
         Set or get a given vdom startindex or endindex
@@ -253,7 +251,15 @@ class Ftntdissect(object):
         Resturns the vdom list sorted alphabetically with management vdom first
         """
         log.info("Enter")
-        # TBD requires _update_mgmt_vdom that requires scope_config
+        result = []
+        result.append(self.mgmt_vdom)
+        sorted_list = tuple(sorted(self._vdom_list))
+        for vd in sorted_list:
+            if vd != self.mgmt_vdom:
+                log.debug ("add vd={}".format(vd))
+                result.append(vd)
+        log.debug ("result={}".format(result))
+        return result
 
     def scope_vdom(self, vdom='root'):
         """
@@ -294,9 +300,12 @@ class Ftntdissect(object):
         """
         Search for edit statement from current scope.
         Upon search success, the scope is updated,
-        Feedback attribut is updated on success.
-        It is possible to get the <id> from an "edit <id>" from feedback 'id'
-        return True if statement is found
+        Feedback attribut is updated:
+          - found: True/False if key is found
+          - startindex: edit section starting index
+          - endindex: edit section ending index
+          - id: the edit <id>
+        Returns True if statement is found
         """
         log.info("Enter with statement={} partial={}".format(statement, partial))
         log.debug("Initial scope={}".format(self.scope))
@@ -316,19 +325,101 @@ class Ftntdissect(object):
 
     def get_key(self, key='', nested=False, default=''):
         """
-        TBD
+        Search the given key in the current scope.
+          - key: the key to search
+          - nested: False(default) or True
+            If nested = False the key is not searched in netsted config/end or edit/next blocks
+          - default: A default key value to return if the key is not found (not seen in the config)
+          - found: True/False if key is found
+         Limitation: can't extract a key value that is a list with brackets
+          Feedback attribut is updated:
+          - index: if found, the index of the key
+          - key: the key itself
+          - value: its value
+        Returns the key value (or its default if not found)
         """
         log.info("Enter with key={} nested={} defaut={}".format(key, nested, default))
         log.debug("Initial scope={}".format(self.scope))
         self._clear_feedback()
-        # TBD : work in progress
+        self.feedback['key'] = key
+        nested_count = 0
+        found = False
+        index = 0
+        # starting at startindex+1 so our block 'config' is not counted as a nested block
+        for i in range (self.scope[0]+1, self.scope[1]):
+            line = self._config[i]
+            # detect start of nested config/end/ or edit/next
+            if re.search('^(?:\s|\t)*(config|edit)', line):
+                nested_count = nested_count + 1
+                log.debug("found start of a nested block at #{} : nested_count={}".format(i, nested_count))
+            if re.search('^(?:\s|\t)*(end|next)$', line):
+                nested_count = nested_count - 1
+                log.debug("found end of a nested block at #{} : nested_count={}".format(i, nested_count))
+            # are we in position to search the key ?
+            if (nested_count == 0  and not nested) or nested:
+                # Extracting value (no list with brackets possible here)
+                log.debug("line={}".format(line))
+                # tip: checkout the lazy quantifier *? to avoid being greedy with "
+                regex = '^(?:\s|\t)*(?:set\s)'+key+'(?:\s|\t)(?:")?(?P<value>.*?)(?:")?(?:(\s|\t)*)$'
+                log.debug("re={}".format(regex))
+                match = re.search(regex, line)
+                if match:
+                    value = match.group('value')
+                    log.debug("found key={} with value={}".format(key,value))
+                    found = True
+                    index = i
+        # use default if key is not found
+        if not found:
+            log.debug("key wasn't found, returning default={}".format(default))
+            value = default
+        self.feedback['found'] = found
+        self.feedback['index'] = index
+        self.feedback['value'] = value
+        log.debug("feedback={}".format(self.feedback))
+        return value
+
+    def set_key(self, key='', value='', index_increment=1, nb_spaces=0, nested=False):
+        """
+        Insert of update a configuration key
+        The key is first searched on the current scope, if found, it is updated (no new line)
+        If the key is not found, a new configuration statement is applied (increase config by 1 line)
+        Parameters:
+          - key: the key to set or udpate
+          - value: the value to apply for the key
+          - index_increment: increment of position for the key to add from scope start (if key not found)
+          - nb_spaces: nb of spaces to add on left indentation befor the 'set'
+          - nested: True/False : Do we need to search for the key in nested blocks ?
+        """
+        log.info("Enter with key={} value={} index_increment={} nb_spaces={} nested={}".\
+          format(key, value, index_increment, nb_spaces, nested))
+        content = " " * nb_spaces + "set " + key + " " + value
+        log.debug("content={}".format(content))
+        # See if the key exists, if so, get its index (we don't provide any default value here)
+        self.get_key(key=key, nested=nested)
+        found = self.feedback['found']
+        if found:
+            old_value = self.feedback['value']
+            index = self.feedback['index']
+            log.debug("key {} found at #{}: replacing value {} with {}".format(key, index, old_value, value))
+            self.set_line(index=index, content=content)
+        else:
+            index = self.scope[0] + index_increment
+            log.debug("key {} was not found, adding new key with value {} at #{} with {} space indentation".\
+              format(key, value, index, nb_spaces))
+            self.insert(index=index, content=content)
+            # config has been touched, need to register vdoms again
+            self.register_vdoms()
 
     def _update_mgmt_vdom(self):
         """
-        Update management vdoms
+        Update management vdoms information
         """
+        mgmt = 'root'
         log.info("Enter")
-        # TBD: requires scope_config
+        if self.scope_config(statement='config system global'):
+            mgmt = self.get_key(key='management-vdom', default='root')
+        log.debug("Update mgmt_vdom with {}".format(mgmt))
+        self.mgmt_vdom = mgmt
 
     def _check_scope(self):
         """
@@ -417,9 +508,14 @@ class Ftntdissect(object):
         log.debug('returning result={}'.format(result))
         return result
 
+    def dump(self):
+        """
+        Dump current scope on STDOUT
+        """
+        log.info("Enter")
+        print("\nDumping current scope {}\n".format(self.scope))
+        for i in range (self.scope[0], self.scope[1]):
+            print ("#{}: {}".format(i, self._config[i]))
 
-"""
-Class sample code
-"""
 if __name__ == '__main__':  # pragma: no cover
     pass

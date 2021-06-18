@@ -35,8 +35,22 @@ CLASSES
      |      Configuration is reduced if using action='shrink'
      |      otherwise block is replaced with blank lines with action='blank' (default)
      |  
+     |  dump(self)
+     |      Dump current scope on STDOUT
+     |  
      |  get_key(self, key='', nested=False, default='')
-     |      TBD
+     |      Search the given key in the current scope.
+     |        - key: the key to search
+     |        - nested: False(default) or True
+     |          If nested = False the key is not searched in netsted config/end or edit/next blocks
+     |        - default: A default key value to return if the key is not found (not seen in the config)
+     |        - found: True/False if key is found
+     |       Limitation: can't extract a key value that is a list with brackets
+     |        Feedback attribut is updated:
+     |        - index: if found, the index of the key
+     |        - key: the key itself
+     |        - value: its value
+     |      Returns the key value (or its default if not found)
      |  
      |  get_line(self, index=1)
      |      Returns configuration line at the provided index
@@ -75,9 +89,12 @@ CLASSES
      |  scope_edit(self, statement='', partial=True)
      |      Search for edit statement from current scope.
      |      Upon search success, the scope is updated,
-     |      Feedback attribut is updated on success.
-     |      It is possible to get the <id> from an "edit <id>" from feedback 'id'
-     |      return True if statement is found
+     |      Feedback attribut is updated:
+     |        - found: True/False if key is found
+     |        - startindex: edit section starting index
+     |        - endindex: edit section ending index
+     |        - id: the edit <id>
+     |      Returns True if statement is found
      |  
      |  scope_init(self)
      |      Reset scope to the full size of the configuration file
@@ -85,6 +102,17 @@ CLASSES
      |  scope_vdom(self, vdom='root')
      |      Set scope corresponding to the given vdom
      |      Vdoms should have been registered before use.
+     |  
+     |  set_key(self, key='', value='', index_increment=1, nb_spaces=0, nested=False)
+     |      Insert of update a configuration key
+     |      The key is first searched on the current scope, if found, it is updated (no new line)
+     |      If the key is not found, a new configuration statement is applied (increase config by 1 line)
+     |      Parameters:
+     |        - key: the key to set or udpate
+     |        - value: the value to apply for the key
+     |        - index_increment: increment of position for the key to add from scope start (if key not found)
+     |        - nb_spaces: nb of spaces to add on left indentation befor the 'set'
+     |        - nested: True/False : Do we need to search for the key in nested blocks ?
      |  
      |  set_line(self, index=None, content='')
      |      Set provided content at provided index in configuration
