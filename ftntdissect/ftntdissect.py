@@ -450,7 +450,7 @@ class Ftntdissect(object):
 
     def _config_seek(self, startindex=0, endindex=999999999, starting_statement='', ending_statement='', key='', partial_flag=False):
         """
-        Generic seak for config/end and edit/next
+        Generic seek for config/end and edit/next
         Use self.scope as search entry point. self.scope is refined during the search
         inputs:
            - startindex
